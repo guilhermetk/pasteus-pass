@@ -208,7 +208,7 @@ async function main() {
     process.exit(0);
   }
 
-  const intervalMinutes = parseInt(process.argv[2] ?? "30", 10);
+  const intervalMinutes = parseInt(process.env.POLL_INTERVAL_MINUTES ?? "30", 10);
   const intervalMs = intervalMinutes * 60 * 1000;
 
   console.log("=== Pasteus Pass - Exam Status Poller ===\n");
