@@ -157,7 +157,11 @@ async function pollExames(token: string): Promise<PollResult> {
 
 // --- Pushover notification ---
 
-async function sendPushover(message: string): Promise<void> {
+async function sendPushover(
+  message: string,
+  title = "Pasteus Pass",
+  priority = -1
+): Promise<void> {
   const user = process.env.PUSHOVER_USER;
   const token = process.env.PUSHOVER_TOKEN;
 
@@ -174,10 +178,10 @@ async function sendPushover(message: string): Promise<void> {
     body: JSON.stringify({
       token,
       user,
-      title: "Exame Status Changed",
+      title,
       message,
-      priority: 1,
-      sound: "persistent",
+      priority,
+      sound: priority >= 1 ? "persistent" : "pushover",
     }),
   });
 
@@ -215,6 +219,8 @@ async function main() {
   console.log(`Poll interval: ${intervalMinutes} minutes`);
   console.log(`Watching: deStatusWeb (expecting "Em Andamento")\n`);
 
+  await sendPushover("Service started. Polling every " + intervalMinutes + " minutes.", "Service Started");
+
   let token = loadCachedToken() ?? await login();
   let checkCount = 0;
 
@@ -240,7 +246,9 @@ async function main() {
       } else {
         console.log(`CHANGED -> "${result.deStatusWeb}"`);
         await sendPushover(
-          `Exam status changed from "Em Andamento" to "${result.deStatusWeb}"`
+          `Exam status changed from "Em Andamento" to "${result.deStatusWeb}"`,
+          "Exame Status Changed",
+          1
         );
         console.log("\nDone - status changed. Exiting.");
         process.exit(0);
@@ -253,4 +261,12 @@ async function main() {
   }
 }
 
-main();
+main().catch(async (err) => {
+  console.error("Fatal error:", err);
+  await sendPushover(
+    `Service crashed: ${err instanceof Error ? err.message : String(err)}`,
+    "Service Crashed",
+    1
+  );
+  process.exit(1);
+});
