@@ -1,0 +1,17 @@
+[Unit]
+Description=Pasteus Pass - Exam Status Poller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pasteus-pass
+ExecStart=/usr/local/bin/bun poll.ts
+Restart=on-failure
+RestartSec=30
+EnvironmentFile=/opt/pasteus-pass/.env
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
