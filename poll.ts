@@ -1,3 +1,6 @@
+import { readFileSync, writeFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+
 // --- Constants ---
 
 const LOGIN_URL =
@@ -34,6 +37,43 @@ const SHARED_HEADERS: Record<string, string> = {
   codbanco: "47",
 };
 
+// --- Token cache ---
+
+const TOKEN_CACHE_FILE = join(dirname(process.argv[1] ?? "."), ".token-cache.json");
+
+interface TokenCache {
+  token: string;
+  expires: string;
+}
+
+function loadCachedToken(): string | null {
+  try {
+    if (!existsSync(TOKEN_CACHE_FILE)) return null;
+
+    const raw = readFileSync(TOKEN_CACHE_FILE, "utf-8");
+    const cache = JSON.parse(raw) as TokenCache;
+
+    const expiresAt = new Date(cache.expires).getTime();
+    const now = Date.now();
+
+    // Add 5 minute buffer before expiry
+    if (expiresAt - now < 5 * 60 * 1000) {
+      console.log("Cached token is expired or about to expire, will re-login");
+      return null;
+    }
+
+    console.log(`Using cached token (expires: ${cache.expires})\n`);
+    return cache.token;
+  } catch {
+    return null;
+  }
+}
+
+function saveTokenCache(token: string, expires: string): void {
+  const cache: TokenCache = { token, expires };
+  writeFileSync(TOKEN_CACHE_FILE, JSON.stringify(cache), "utf-8");
+}
+
 // --- Login ---
 
 interface LoginResponse {
@@ -64,6 +104,8 @@ async function login(): Promise<string> {
 
   console.log(`Logged in as ${data.userToken.userName}`);
   console.log(`Token expires: ${expires}\n`);
+
+  saveTokenCache(token, expires);
 
   return token;
 }
@@ -173,7 +215,7 @@ async function main() {
   console.log(`Poll interval: ${intervalMinutes} minutes`);
   console.log(`Watching: deStatusWeb (expecting "Em Andamento")\n`);
 
-  let token = await login();
+  let token = loadCachedToken() ?? await login();
   let checkCount = 0;
 
   while (true) {
